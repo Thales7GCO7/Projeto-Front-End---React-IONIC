@@ -266,15 +266,27 @@ ion-content.invest-page {
   color: var(--accent-red);
 }
 
-/* Chart Card */
-.invest-chart-card {
-  background: var(--bg-card);
-  backdrop-filter: blur(20px);
+/* Multi-panel chart layout */
+.chart-panels {
+  border-radius: 14px;
+  overflow: hidden;
   border: 1px solid var(--border-glass);
-  border-radius: 16px;
-  padding: 16px;
   margin-bottom: 16px;
   box-shadow: var(--shadow-card);
+}
+
+.chart-panel {
+  background: var(--bg-card);
+  padding: 8px 12px 4px;
+}
+
+.chart-panel + .chart-panel {
+  border-top: 1px solid var(--border-glass);
+}
+
+.chart-panel iframe,
+.chart-panel div[style*="position: relative"] {
+  border-radius: 0 !important;
 }
 
 .chart-loader {
@@ -283,6 +295,32 @@ ion-content.invest-page {
   justify-content: center;
   height: 400px;
   color: var(--text-secondary);
+}
+
+.panel-volume .chart-loader,
+.panel-rsi .chart-loader,
+.panel-macd .chart-loader {
+  height: 100px;
+}
+
+.panel-price {
+  padding-top: 12px;
+}
+
+.panel-volume {
+  padding: 2px 12px;
+}
+
+.panel-volume .chart-loader {
+  height: 80px;
+}
+
+.panel-rsi {
+  padding: 4px 12px;
+}
+
+.panel-macd {
+  padding: 4px 12px 8px;
 }
 
 /* Indicators Row */

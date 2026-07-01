@@ -2,7 +2,10 @@ import { IonContent, IonPage } from '@ionic/react';
 import { useEffect, useState } from "react";
 import { Chart } from "react-google-charts";
 import { buscarAcao, StockPoint } from "../services/AlphaVantage.service";
-import { analyzeStock, AnalysisResult, calculateSMA } from "../utils/investmentCalculations";
+import {
+  analyzeStock, AnalysisResult, calculateSMA,
+  calculateRSIArray, calculateMACDArray
+} from "../utils/investmentCalculations";
 import { generateReport, InvestmentReport } from "../utils/investmentReport";
 import "./Tab1.css";
 
@@ -42,13 +45,14 @@ const Tab1: React.FC = () => {
     }
   }
 
-  const chartData = () => {
+  const prices = dataPoints.map(d => d.close);
+  const sma20Arr = calculateSMA(prices, 20);
+  const sma50Arr = calculateSMA(prices, 50);
+  const rsiArr = calculateRSIArray(prices, 14);
+  const macdArr = calculateMACDArray(prices);
+
+  const priceChartData = () => {
     if (dataPoints.length < 2 || !analysis) return [];
-
-    const prices = dataPoints.map(d => d.close);
-    const sma20Arr = calculateSMA(prices, 20);
-    const sma50Arr = calculateSMA(prices, 50);
-
     const rows = dataPoints.map((dp, index) => [
       new Date(dp.date),
       dp.close,
@@ -57,41 +61,146 @@ const Tab1: React.FC = () => {
       analysis.upperBollinger,
       analysis.lowerBollinger,
     ]);
-
     return [
       ["Data", "Preço", "SMA20", "SMA50", "Bollinger Sup", "Bollinger Inf"],
       ...rows,
     ];
   };
 
-  const chartOptions = {
-    title: `${simbolo} — Histórico com Indicadores`,
-    titleTextStyle: { color: "#fff", fontSize: 14 },
-    curveType: "function" as const,
-    legend: { position: "top" as const, textStyle: { color: "#fff" } },
-    colors: ["#00e5ff", "#ffd740", "#ff6d00", "#546e7a", "#546e7a"],
-    series: {
-      1: { lineDashStyle: [8, 4] as number[] },
-      2: { lineDashStyle: [4, 4] as number[] },
-      3: { lineDashStyle: [2, 2] as number[], enableInteractivity: false, color: "#546e7a" },
-      4: { lineDashStyle: [2, 2] as number[], enableInteractivity: false, color: "#546e7a" },
-    },
+  const volumeChartData = () => {
+    if (dataPoints.length < 2) return [];
+    const rows = dataPoints.map((dp) => [new Date(dp.date), dp.volume]);
+    return [["Data", "Volume"], ...rows];
+  };
+
+  const rsiChartData = () => {
+    if (dataPoints.length < 2) return [];
+    const rows = dataPoints.map((dp, index) => [
+      new Date(dp.date),
+      rsiArr[index],
+    ]);
+    return [["Data", "RSI"], ...rows];
+  };
+
+  const macdChartData = () => {
+    if (dataPoints.length < 2) return [];
+    const rows = dataPoints.map((dp, index) => [
+      new Date(dp.date),
+      macdArr.macd[index],
+      macdArr.signal[index],
+      macdArr.histogram[index],
+    ]);
+    return [["Data", "MACD", "Sinal", "Histograma"], ...rows];
+  };
+
+  const baseChartTheme = {
     backgroundColor: "transparent",
-    chartArea: { width: "88%", height: "70%" },
+    chartArea: { width: "92%", height: "72%" },
+    legend: { position: "top" as const, textStyle: { color: "#b0bec5", fontSize: 11 } },
     hAxis: {
-      title: "Data",
       format: "dd/MM",
-      textStyle: { color: "#fff", fontSize: 11 },
-      titleTextStyle: { color: "#fff" },
-      slantedText: false,
+      textStyle: { color: "#78909c", fontSize: 10 },
+      gridlines: { color: "#1a2332" },
+      minorGridlines: { color: "#111b26" },
     },
     vAxis: {
-      title: "Preço (USD)",
-      textStyle: { color: "#fff", fontSize: 11 },
-      titleTextStyle: { color: "#fff" },
+      textStyle: { color: "#78909c", fontSize: 10 },
+      gridlines: { color: "#1a2332" },
+      minorGridlines: { color: "#111b26" },
     },
+  };
+
+  const priceOptions = {
+    ...baseChartTheme,
+    title: `${simbolo} — Preço & Indicadores`,
+    titleTextStyle: { color: "#eceff1", fontSize: 13 },
+    legend: { position: "top" as const, textStyle: { color: "#b0bec5", fontSize: 11 } },
+    colors: ["#4dd0e1", "#ffb74d", "#ab47bc", "#37474f", "#37474f"],
+    series: {
+      1: { lineDashStyle: [6, 3] as number[] },
+      2: { lineDashStyle: [3, 3] as number[] },
+      3: { lineDashStyle: [1, 2] as number[], enableInteractivity: false, color: "#455a64" },
+      4: { lineDashStyle: [1, 2] as number[], enableInteractivity: false, color: "#455a64" },
+    },
+    curveType: "function" as const,
     lineWidth: 2,
-    areaOpacity: 0.05,
+    areaOpacity: 0.04,
+    vAxis: {
+      ...baseChartTheme.vAxis,
+      title: "Preço (USD)",
+      titleTextStyle: { color: "#90a4ae", fontSize: 11 },
+    },
+    hAxis: {
+      ...baseChartTheme.hAxis,
+      title: "",
+    },
+    explorer: { actions: ["dragToZoom", "rightClickToReset"], keepInBounds: true },
+  };
+
+  const volumeOptions = {
+    ...baseChartTheme,
+    title: "Volume",
+    titleTextStyle: { color: "#eceff1", fontSize: 11 },
+    legend: "none" as const,
+    colors: ["#4dd0e1"],
+    vAxis: {
+      ...baseChartTheme.vAxis,
+      format: "compact",
+      title: "",
+    },
+    hAxis: {
+      ...baseChartTheme.hAxis,
+      title: "",
+    },
+    enableInteractivity: false,
+  };
+
+  const rsiOptions = {
+    ...baseChartTheme,
+    title: "RSI (14)",
+    titleTextStyle: { color: "#eceff1", fontSize: 11 },
+    legend: "none" as const,
+    colors: ["#ce93d8"],
+    curveType: "function" as const,
+    lineWidth: 1.5,
+    vAxis: {
+      ...baseChartTheme.vAxis,
+      title: "",
+      minValue: 0,
+      maxValue: 100,
+      viewWindow: { min: 0, max: 100 },
+    },
+    hAxis: {
+      ...baseChartTheme.hAxis,
+      title: "",
+    },
+    chartArea: { width: "92%", height: "65%" },
+    series: {
+      0: { areaOpacity: 0.08 },
+    },
+  };
+
+  const macdOptions = {
+    ...baseChartTheme,
+    title: "MACD",
+    titleTextStyle: { color: "#eceff1", fontSize: 11 },
+    legend: { position: "top" as const, textStyle: { color: "#b0bec5", fontSize: 10 } },
+    colors: ["#4dd0e1", "#ffb74d", "#78909c"],
+    series: {
+      0: { lineWidth: 1.5 },
+      1: { lineWidth: 1, lineDashStyle: [3, 3] as number[] },
+      2: { lineWidth: 0, visibleInLegend: false },
+    },
+    curveType: "function" as const,
+    vAxis: {
+      ...baseChartTheme.vAxis,
+      title: "",
+    },
+    hAxis: {
+      ...baseChartTheme.hAxis,
+      title: "",
+    },
+    chartArea: { width: "92%", height: "65%" },
   };
 
   function formatCurrency(value: number): string {
@@ -192,44 +301,59 @@ const Tab1: React.FC = () => {
                 </div>
               </div>
 
-              {/* Main Chart */}
-              <div className="invest-chart-card">
-                <Chart
-                  chartType="LineChart"
-                  width="100%"
-                  height="420px"
-                  data={chartData()}
-                  options={chartOptions}
-                  loader={<div className="chart-loader">Carregando gráfico...</div>}
-                />
+              {/* Multi-panel charts */}
+              <div className="chart-panels">
+                {/* Main Price Chart */}
+                <div className="chart-panel panel-price">
+                  <Chart
+                    chartType="LineChart"
+                    width="100%"
+                    height="400px"
+                    data={priceChartData()}
+                    options={priceOptions}
+                    loader={<div className="chart-loader">Carregando...</div>}
+                  />
+                </div>
+
+                {/* Volume Chart */}
+                <div className="chart-panel panel-volume">
+                  <Chart
+                    chartType="ColumnChart"
+                    width="100%"
+                    height="100px"
+                    data={volumeChartData()}
+                    options={volumeOptions}
+                    loader={<div className="chart-loader">Carregando...</div>}
+                  />
+                </div>
+
+                {/* RSI Chart */}
+                <div className="chart-panel panel-rsi">
+                  <Chart
+                    chartType="LineChart"
+                    width="100%"
+                    height="140px"
+                    data={rsiChartData()}
+                    options={rsiOptions}
+                    loader={<div className="chart-loader">Carregando...</div>}
+                  />
+                </div>
+
+                {/* MACD Chart */}
+                <div className="chart-panel panel-macd">
+                  <Chart
+                    chartType="LineChart"
+                    width="100%"
+                    height="140px"
+                    data={macdChartData()}
+                    options={macdOptions}
+                    loader={<div className="chart-loader">Carregando...</div>}
+                  />
+                </div>
               </div>
 
               {/* MACD + RSI Row */}
               <div className="invest-indicators-row">
-                <div className="indicator-card">
-                  <span className="indicator-title">MACD</span>
-                  <div className="indicator-values">
-                    <div className="indicator-item">
-                      <span className="indicator-label">MACD</span>
-                      <span className={`indicator-val ${analysis.macd >= 0 ? "positive" : "negative"}`}>
-                        {analysis.macd.toFixed(4)}
-                      </span>
-                    </div>
-                    <div className="indicator-item">
-                      <span className="indicator-label">Sinal</span>
-                      <span className="indicator-val">{analysis.macdSignal.toFixed(4)}</span>
-                    </div>
-                    <div className="indicator-item">
-                      <span className="indicator-label">Histograma</span>
-                      <span className={`indicator-val ${analysis.macdHistogram >= 0 ? "positive" : "negative"}`}>
-                        {analysis.macdHistogram.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                  <span className={`indicator-status ${analysis.macd > analysis.macdSignal ? "bullish" : "bearish"}`}>
-                    {analysis.macd > analysis.macdSignal ? "▲ Altista" : "▼ Baixista"}
-                  </span>
-                </div>
                 <div className="indicator-card">
                   <span className="indicator-title">Médias Móveis</span>
                   <div className="indicator-values">
@@ -272,6 +396,30 @@ const Tab1: React.FC = () => {
                       : analysis.currentPrice <= analysis.lowerBollinger * 1.02
                       ? "▼ Toca inferior"
                       : "◆ Dentro das bandas"}
+                  </span>
+                </div>
+                <div className="indicator-card">
+                  <span className="indicator-title">MACD</span>
+                  <div className="indicator-values">
+                    <div className="indicator-item">
+                      <span className="indicator-label">MACD</span>
+                      <span className={`indicator-val ${analysis.macd >= 0 ? "positive" : "negative"}`}>
+                        {analysis.macd.toFixed(4)}
+                      </span>
+                    </div>
+                    <div className="indicator-item">
+                      <span className="indicator-label">Sinal</span>
+                      <span className="indicator-val">{analysis.macdSignal.toFixed(4)}</span>
+                    </div>
+                    <div className="indicator-item">
+                      <span className="indicator-label">Histograma</span>
+                      <span className={`indicator-val ${analysis.macdHistogram >= 0 ? "positive" : "negative"}`}>
+                        {analysis.macdHistogram.toFixed(4)}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`indicator-status ${analysis.macd > analysis.macdSignal ? "bullish" : "bearish"}`}>
+                    {analysis.macd > analysis.macdSignal ? "▲ Altista" : "▼ Baixista"}
                   </span>
                 </div>
               </div>

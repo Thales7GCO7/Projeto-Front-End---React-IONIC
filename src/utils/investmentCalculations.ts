@@ -99,6 +99,58 @@ export function calculateMACD(prices: number[]): { macd: number; signal: number;
   return { macd: macdLine, signal, histogram: macdLine - signal };
 }
 
+export function calculateRSIArray(prices: number[], period: number = 14): (number | null)[] {
+  if (prices.length < period + 1) return prices.map(() => null);
+  const result: (number | null)[] = new Array(period).fill(null);
+  let gains = 0;
+  let losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = prices[i] - prices[i - 1];
+    if (diff > 0) gains += diff;
+    else losses -= diff;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  for (let i = period; i < prices.length; i++) {
+    if (i > period) {
+      const diff = prices[i] - prices[i - 1];
+      avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period;
+      avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+    }
+    if (avgLoss === 0) result.push(100);
+    else result.push(100 - 100 / (1 + avgGain / avgLoss));
+  }
+  return result;
+}
+
+export function calculateMACDArray(prices: number[]): { macd: (number | null)[]; signal: (number | null)[]; histogram: (number | null)[] } {
+  const ema12 = calculateEMA(prices, 12);
+  const ema26 = calculateEMA(prices, 26);
+  const macdLine: (number | null)[] = [];
+  const signalLine: (number | null)[] = [];
+  const histogram: (number | null)[] = [];
+
+  for (let i = 0; i < prices.length; i++) {
+    if (i < 25) {
+      macdLine.push(null);
+      signalLine.push(null);
+      histogram.push(null);
+    } else {
+      const val = ema12[i - 11] - ema26[i - 25];
+      macdLine.push(val);
+      if (i < 33) {
+        signalLine.push(null);
+        histogram.push(null);
+      } else {
+        const sig = macdLine.slice(-9).filter((v): v is number => v !== null).reduce((a, b) => a + b, 0) / 9;
+        signalLine.push(sig);
+        histogram.push(val - sig);
+      }
+    }
+  }
+  return { macd: macdLine, signal: signalLine, histogram };
+}
+
 export function calculateBollingerBands(prices: number[], period: number = 20): { upper: number; lower: number; middle: number } {
   const smaArr = calculateSMA(prices, period);
   const currentSMA = smaArr[smaArr.length - 1];
